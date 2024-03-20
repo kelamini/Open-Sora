@@ -4,7 +4,7 @@
 <div align="center">
     <a href="https://github.com/hpcaitech/Open-Sora/stargazers"><img src="https://img.shields.io/github/stars/hpcaitech/Open-Sora?style=social"></a>
     <a href="https://hpcaitech.github.io/Open-Sora/"><img src="https://img.shields.io/badge/Gallery-View-orange?logo=&amp"></a>
-    <a href="https://discord.gg/shpbperhGs"><img src="https://img.shields.io/badge/Discord-join-blueviolet?logo=discord&amp"></a>
+    <a href="https://discord.gg/kZakZzrSUT"><img src="https://img.shields.io/badge/Discord-join-blueviolet?logo=discord&amp"></a>
     <a href="https://join.slack.com/t/colossalaiworkspace/shared_invite/zt-247ipg9fk-KRRYmUl~u2ll2637WRURVA"><img src="https://img.shields.io/badge/Slack-ColossalAI-blueviolet?logo=slack&amp"></a>
     <a href="https://twitter.com/yangyou1991/status/1769411544083996787?s=61&t=jT0Dsx2d-MS5vS9rNM5e5g"><img src="https://img.shields.io/badge/Twitter-Discuss-blue?logo=twitter&amp"></a>
     <a href="https://raw.githubusercontent.com/hpcaitech/public_assets/main/colossalai/img/WeChat.png"><img src="https://img.shields.io/badge/微信-小助手加群-green?logo=wechat&amp"></a>
@@ -26,8 +26,10 @@ With Open-Sora, we aim to inspire innovation, creativity, and inclusivity in the
 * **[2024.03.18]** 🔥 We release **Open-Sora 1.0**, a fully open-source project for video generation.
 Open-Sora 1.0 supports a full pipeline of video data preprocessing, training with
 <a href="https://github.com/hpcaitech/ColossalAI"><img src="assets/readme/colossal_ai.png" width="8%" ></a> acceleration,
-inference, and more. Our provided [checkpoints](#model-weights) can produce 2~5s 512x512 videos with only 3 days training.
+inference, and more. Our provided [checkpoints](#model-weights) can produce 2s 512x512 videos with only 3 days training.
+[[blog]](https://hpc-ai.com/blog/open-sora-v1.0)
 * **[2024.03.04]** Open-Sora provides training with 46% cost reduction.
+[[blog]](https://hpc-ai.com/blog/open-sora)
 
 ## 🎥 Latest Demo
 
@@ -46,7 +48,7 @@ Videos are downsampled to `.gif` for display. Click for original videos. Prompts
 * 📍 Open-Sora-v1 released. Model weights are available [here](#model-weights). With only 400K video clips and 200 H800 days (compared with 152M samples in Stable Video Diffusion), we are able to generate 2s 512×512 videos.
 * ✅ Three stages training from an image diffusion model to a video diffusion model. We provide the weights for each stage.
 * ✅ Support training acceleration including accelerated transformer, faster T5 and VAE, and sequence parallelism. Open-Sora improve **55%** training speed when training on 64x512x512 videos. Details locates at [acceleration.md](docs/acceleration.md).
-* ✅ We provide video cutting and captioning tools for data preprocessing. Instructions can be found [here](tools/data/README.md) and our data collection plan can be found at [datasets.md](docs/datasets.md).
+* ✅ We provide data preprocessing pipeline, including [downloading](/tools/datasets/README.md), [video cutting](/tools/scenedetect/README.md), and [captioning](/tools/caption/README.md) tools. Our data collection plan can be found at [datasets.md](docs/datasets.md).
 * ✅ We find VQ-VAE from [VideoGPT](https://wilson1yan.github.io/videogpt/index.html) has a low quality and thus adopt a better VAE from [Stability-AI](https://huggingface.co/stabilityai/sd-vae-ft-mse-original). We also find patching in the time dimension deteriorates the quality. See our **[report](docs/report_v1.md)** for more discussions.
 * ✅ We investigate different architectures including DiT, Latte, and our proposed STDiT. Our **STDiT** achieves a better trade-off between quality and speed. See our **[report](docs/report_v1.md)** for more discussions.
 * ✅ Support clip and T5 text conditioning.
@@ -118,12 +120,11 @@ After installation, we suggest reading [structure.md](docs/structure.md) to lear
 
 ## Model Weights
 
-| Resoluion  | Data   | #iterations | Batch Size | GPU days (H800) | URL                                                                                           |
+| Resolution  | Data   | #iterations | Batch Size | GPU days (H800) | URL                                                                                           |
 | ---------- | ------ | ----------- | ---------- | --------------- | --------------------------------------------------------------------------------------------- |
 | 16×256×256 | 366K   | 80k         | 8×64       | 117             | [:link:](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-16x256x256.pth)    |
 | 16×256×256 | 20K HQ | 24k         | 8×64       | 45              | [:link:](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-HQ-16x256x256.pth) |
 | 16×512×512 | 20K HQ | 20k         | 2×64       | 35              | [:link:](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-HQ-16x512x512.pth) |
-| 64×512×512 | 50K HQ |             |            |                 | TBD                                                                                           |
 
 Our model's weight is partially initialized from [PixArt-α](https://github.com/PixArt-alpha/PixArt-alpha). The number of parameters is 724M. More information about training can be found in our **[report](/docs/report_v1.md)**. More about dataset can be found in [dataset.md](/docs/dataset.md). HQ means high quality.
 
@@ -131,24 +132,28 @@ Our model's weight is partially initialized from [PixArt-α](https://github.com/
 
 ## Inference
 
-To run inference with our provided weights, first download [T5](https://huggingface.co/DeepFloyd/t5-v1_1-xxl/tree/main) weights into `pretrained_models/t5_ckpts/t5-v1_1-xxl`. Then download the model weights. Run the following commands to generate samples. See [here](docs/structure.md#inference-config-demos) to customize the configuration.
+To run inference with our provided weights, first download [T5](https://huggingface.co/DeepFloyd/t5-v1_1-xxl/tree/main) weights into `pretrained_models/t5_ckpts/t5-v1_1-xxl`. Then download the model weights from [huggingface](https://huggingface.co/hpcai-tech/Open-Sora/tree/main). Run the following commands to generate samples. To change sampling prompts, modify the txt file passed to `--prompt-path`. See [here](docs/structure.md#inference-config-demos) to customize the configuration.
 
 ```bash
-# Sample 16x256x256 (5s/sample)
-torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x256x256.py --ckpt-path ./path/to/your/ckpt.pth
+# Sample 16x256x256 (5s/sample, 100 time steps, 22 GB memory)
+torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x256x256.py --ckpt-path ./path/to/your/ckpt.pth --prompt-path ./asserts/texts/t2v_samples.txt
+# Auto Download
+torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x256x256.py --ckpt-path OpenSora-v1-HQ-16x256x256.pth --prompt-path ./assets/texts/t2v_samples.txt
 
-# Sample 16x512x512 (20s/sample, 100 time steps)
-torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x512x512.py --ckpt-path ./path/to/your/ckpt.pth
+# Sample 16x512x512 (20s/sample, 100 time steps, 24 GB memory)
+torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x512x512.py --ckpt-path ./path/to/your/ckpt.pth --prompt-path ./asserts/texts/t2v_samples.txt
+# Auto Download
+torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/16x512x512.py --ckpt-path OpenSora-v1-HQ-16x512x512.pth --prompt-path ./assets/texts/t2v_samples.txt
 
 # Sample 64x512x512 (40s/sample, 100 time steps)
-torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/64x512x512.py --ckpt-path ./path/to/your/ckpt.pth
+torchrun --standalone --nproc_per_node 1 scripts/inference.py configs/opensora/inference/64x512x512.py --ckpt-path ./path/to/your/ckpt.pth --prompt-path ./asserts/texts/t2v_samples.txt
 
 # Sample 64x512x512 with sequence parallelism (30s/sample, 100 time steps)
 # sequence parallelism is enabled automatically when nproc_per_node is larger than 1
-torchrun --standalone --nproc_per_node 2 scripts/inference.py configs/opensora/inference/64x512x512.py --ckpt-path ./path/to/your/ckpt.pth
+torchrun --standalone --nproc_per_node 2 scripts/inference.py configs/opensora/inference/64x512x512.py --ckpt-path ./path/to/your/ckpt.pth --prompt-path ./asserts/texts/t2v_samples.txt
 ```
 
-The speed is tested on H800 GPUs. For inference with other models, see [here](docs/commands.md) for more instructions.
+The speed is tested on H800 GPUs. For inference with other models, see [here](docs/commands.md) for more instructions. To lower the memory usage, set a smaller `vae.micro_batch_size` in the config (slightly lower sampling speed).
 
 ## Data Processing
 
@@ -164,7 +169,7 @@ To launch training, first download [T5](https://huggingface.co/DeepFloyd/t5-v1_1
 
 ```bash
 # 1 GPU, 16x256x256
-torchrun --nnodes=1 --nproc_per_node=1 scripts/train.py configs/opensora/train/16x256x512.py --data-path YOUR_CSV_PATH
+torchrun --nnodes=1 --nproc_per_node=1 scripts/train.py configs/opensora/train/16x256x256.py --data-path YOUR_CSV_PATH
 # 8 GPUs, 64x512x512
 torchrun --nnodes=1 --nproc_per_node=8 scripts/train.py configs/opensora/train/64x512x512.py --data-path YOUR_CSV_PATH --ckpt-path YOUR_PRETRAINED_CKPT
 ```
@@ -189,7 +194,7 @@ Thanks goes to these wonderful contributors ([emoji key](https://allcontributors
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/zhengzangw"><img src="https://avatars.githubusercontent.com/zhengzangw?v=4?s=100" width="100px;" alt="zhengzangw"/><br /><sub><b>zhengzangw</b></sub></a><br /><a href="https://github.com/hpcaitech/Open-Sora/commits?author=zhengzangw" title="Code">💻</a> <a href="https://github.com/hpcaitech/Open-Sora/commits?author=zhengzangw" title="Documentation">📖</a> <a href="#ideas-zhengzangw" title="Ideas, Planning, & Feedback">🤔</a> <a href="#video-zhengzangw" title="Videos">📹</a> <a href="#maintenance-zhengzangw" title="Maintenance">🚧</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ver217"><img src="https://avatars.githubusercontent.com/ver217?v=4?s=100" width="100px;" alt="ver217"/><br /><sub><b>ver217</b></sub></a><br /><a href="https://github.com/hpcaitech/Open-Sora/commits?author=ver217" title="Code">💻</a> <a href="#ideas-ver217" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/hpcaitech/Open-Sora/commits?author=ver217" title="Documentation">📖</a> <a href="#bug-ver217" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/nkLeeeee"><img src="https://avatars.githubusercontent.com/nkLeeeee?v=4?s=100" width="100px;" alt="nkLeeeee"/><br /><sub><b>nkLeeeee</b></sub></a><br /><a href="https://github.com/hpcaitech/Open-Sora/commits?author=nkLeeeee" title="Code">💻</a> <a href="#infra-nkLeeeee" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#tool-nkLeeeee" title="Tools">🔧</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/FrankLeeeee"><img src="https://avatars.githubusercontent.com/FrankLeeeee?v=4?s=100" width="100px;" alt="FrankLeeeee"/><br /><sub><b>FrankLeeeee</b></sub></a><br /><a href="https://github.com/hpcaitech/Open-Sora/commits?author=FrankLeeeee" title="Code">💻</a> <a href="#infra-FrankLeeeee" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#tool-FrankLeeeee" title="Tools">🔧</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/xyupeng"><img src="https://avatars.githubusercontent.com/xyupeng?v=4?s=100" width="100px;" alt="xyupeng"/><br /><sub><b>xyupeng</b></sub></a><br /><a href="https://github.com/hpcaitech/Open-Sora/commits?author=xyupeng" title="Code">💻</a> <a href="#doc-xyupeng" title="Documentation">📖</a> <a href="#design-xyupeng" title="Design">🎨</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Yanjia0"><img src="https://avatars.githubusercontent.com/Yanjia0?v=4?s=100" width="100px;" alt="Yanjia0"/><br /><sub><b>Yanjia0</b></sub></a><br /><a href="#doc-Yanjia0" title="Documentation">📖</a></td>
     </tr>
@@ -212,6 +217,7 @@ If you wish to contribute to this project, you can refer to the [Contribution Gu
 
 ## Acknowledgement
 
+* [ColossalAI](https://github.com/hpcaitech/ColossalAI): A powerful large model parallel acceleration and optimization system.
 * [DiT](https://github.com/facebookresearch/DiT): Scalable Diffusion Models with Transformers.
 * [OpenDiT](https://github.com/NUS-HPC-AI-Lab/OpenDiT): An acceleration for DiT training. We adopt valuable acceleration strategies for training progress from OpenDiT.
 * [PixArt](https://github.com/PixArt-alpha/PixArt-alpha): An open-source DiT-based text-to-image model.
