@@ -50,4 +50,4 @@ load = None
 
 batch_size = 8
 lr = 2e-5
-grad_clip = 1.0
+grad_clip = 1.0     # 梯度裁剪

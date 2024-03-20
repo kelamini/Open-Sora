@@ -50,7 +50,7 @@
 <details>
 <summary>查看更多</summary>
 
-* ✅ 重构代码库。请参阅[结构](docs/structure.md)，了解项目结构以及如何使用配置文件。
+* ✅ 重构代码库。请参阅[结构](structure.md)，了解项目结构以及如何使用配置文件。
 
 </details>
 

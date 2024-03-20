@@ -116,7 +116,7 @@ class STDiTBlock(nn.Module):
         return x
 
 
-@MODELS.register_module()
+# @MODELS.register_module()
 class STDiT(nn.Module):
     def __init__(
         self,
@@ -143,24 +143,24 @@ class STDiT(nn.Module):
     ):
         super().__init__()
         self.pred_sigma = pred_sigma
-        self.in_channels = in_channels
-        self.out_channels = in_channels * 2 if pred_sigma else in_channels
-        self.hidden_size = hidden_size
-        self.patch_size = patch_size
-        self.input_size = input_size
-        num_patches = np.prod([input_size[i] // patch_size[i] for i in range(3)])
-        self.num_patches = num_patches
-        self.num_temporal = input_size[0] // patch_size[0]
-        self.num_spatial = num_patches // self.num_temporal
-        self.num_heads = num_heads
+        self.in_channels = in_channels  # 4
+        self.out_channels = in_channels * 2 if pred_sigma else in_channels  # 8
+        self.hidden_size = hidden_size  # 1152
+        self.patch_size = patch_size    # (1, 2, 2)
+        self.input_size = input_size    # (1, 32, 32)
+        num_patches = np.prod([input_size[i] // patch_size[i] for i in range(3)])   # 1*16*16=256
+        self.num_patches = num_patches  # 256
+        self.num_temporal = input_size[0] // patch_size[0]  # 1
+        self.num_spatial = num_patches // self.num_temporal # 256
+        self.num_heads = num_heads  # 16
         self.dtype = dtype
         self.no_temporal_pos_emb = no_temporal_pos_emb
-        self.depth = depth
-        self.mlp_ratio = mlp_ratio
+        self.depth = depth  # 28
+        self.mlp_ratio = mlp_ratio  # 4
         self.enable_flashattn = enable_flashattn
         self.enable_layernorm_kernel = enable_layernorm_kernel
-        self.space_scale = space_scale
-        self.time_scale = time_scale
+        self.space_scale = space_scale  # 1.0
+        self.time_scale = time_scale    # 1.0
 
         self.register_buffer("pos_embed", self.get_spatial_pos_embed())
         self.register_buffer("pos_embed_temporal", self.get_temporal_pos_embed())
@@ -228,9 +228,13 @@ class STDiT(nn.Module):
         x = x.to(self.dtype)
         timestep = timestep.to(self.dtype)
         y = y.to(self.dtype)
+        print(f"===>  x shape: {x.shape}")
+        print(f"===>  y shape: {y.shape}")
+
 
         # embedding
-        x = self.x_embedder(x)  # [B, N, C]
+        x = self.x_embedder(x)  # [B, C, T, H, W] -> [B, N, hidden_size]
+        print(f"===>  x_embedder shape: {x.shape}")
         x = rearrange(x, "B (T S) C -> B T S C", T=self.num_temporal, S=self.num_spatial)
         x = x + self.pos_embed
         x = rearrange(x, "B T S C -> B (T S) C")
@@ -239,9 +243,13 @@ class STDiT(nn.Module):
         if self.enable_sequence_parallelism:
             x = split_forward_gather_backward(x, get_sequence_parallel_group(), dim=1, grad_scale="down")
 
-        t = self.t_embedder(timestep, dtype=x.dtype)  # [B, C]
-        t0 = self.t_block(t)  # [B, C]
-        y = self.y_embedder(y, self.training)  # [B, 1, N_token, C]
+        t = self.t_embedder(timestep, dtype=x.dtype)  # [B] -> [B, hidden_size]
+        t0 = self.t_block(t)  # [B, hidden_size] -> [B, 6*hidden_size]
+        y = self.y_embedder(y, self.training)  # [B, 1, model_max_length, C] -> [B, 1, model_max_length, hidden_size]
+        print(f"===>  t shape: {t.shape}")
+        print(f"===>  t0 shape: {t0.shape}")
+        print(f"===>  y_embedder shape: {y.shape}")
+
 
         if mask is not None:
             if mask.shape[0] != y.shape[0]:
@@ -249,9 +257,13 @@ class STDiT(nn.Module):
             mask = mask.squeeze(1).squeeze(1)
             y = y.squeeze(1).masked_select(mask.unsqueeze(-1) != 0).view(1, -1, x.shape[-1])
             y_lens = mask.sum(dim=1).tolist()
+            print(f"===>  y_reshape shape: {y.shape}")
         else:
-            y_lens = [y.shape[2]] * y.shape[0]
-            y = y.squeeze(1).view(1, -1, x.shape[-1])
+            y_lens = [y.shape[2]] * y.shape[0]  # [B]
+            y = y.squeeze(1).view(1, -1, x.shape[-1])   # [B, 1, model_max_length, hidden_size] -> [1, -1, hidden_size]
+            print(f"===>  y_reshape shape: {y.shape}")
+        
+        print(f"===>  mask shape: {mask.shape}")
 
         # blocks
         for i, block in enumerate(self.blocks):
@@ -264,15 +276,18 @@ class STDiT(nn.Module):
                     tpe = self.pos_embed_temporal
             else:
                 tpe = None
-            x = auto_grad_checkpoint(block, x, y, t0, y_lens, tpe)
+            x = auto_grad_checkpoint(block, x, y, t0, y_lens, tpe)  # [B, N, C]
 
         if self.enable_sequence_parallelism:
             x = gather_forward_split_backward(x, get_sequence_parallel_group(), dim=1, grad_scale="up")
         # x.shape: [B, N, C]
 
+        print(f"===>  x_block: {x.shape}")
         # final process
-        x = self.final_layer(x, t)  # [B, N, C=T_p * H_p * W_p * C_out]
-        x = self.unpatchify(x)  # [B, C_out, T, H, W]
+        x = self.final_layer(x, t)  # [B, N, T_p * H_p * W_p * 2*C]
+        print(f"===>  x_final_layer: {x.shape}")
+        x = self.unpatchify(x)  # [B, 2*C, T, H, W]
+        print(f"===>  output shape: {x.shape}")
 
         # cast to float32 for better accuracy
         x = x.to(torch.float32)
@@ -380,9 +395,24 @@ class STDiT(nn.Module):
         nn.init.constant_(self.final_layer.linear.bias, 0)
 
 
-@MODELS.register_module("STDiT-XL/2")
+# @MODELS.register_module("STDiT-XL/2")
 def STDiT_XL_2(from_pretrained=None, **kwargs):
     model = STDiT(depth=28, hidden_size=1152, patch_size=(1, 2, 2), num_heads=16, **kwargs)
     if from_pretrained is not None:
         load_checkpoint(model, from_pretrained)
     return model
+
+if __name__  == "__main__":
+    from torchsummary import summary
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    x = torch.ones([8, 4, 1, 32, 32]).to(device)  # [B, C, T, H, W]
+    timestep = torch.ones([8]).to(device)           # B
+    y = torch.ones([8, 1, 120, 4096]).to(device)    # [B, 1, model_max_length, caption_channels]
+    mask = torch.ones([8, 120]).to(device)          # [B, model_max_length]
+    model = STDiT_XL_2().to(device)
+    
+    summary(model, [x, timestep, y, mask])  # [B, 2*C, T, H, W]
+    
+    output = model(x, timestep, y, mask=mask)      

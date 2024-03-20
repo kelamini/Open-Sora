@@ -89,7 +89,7 @@ def main():
     # ======================================================
     # 3. build dataset and dataloader
     # ======================================================
-    dataset = DatasetFromCSV(
+    dataset = DatasetFromCSV(   # C T H W
         cfg.data_path,
         # TODO: change transforms
         transform=(
